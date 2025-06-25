@@ -1,10 +1,27 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import session from "express-session";
 import { storage } from "./storage";
 import { insertGuestSchema, insertShiftSchema, insertPaymentSchema } from "@shared/schema";
+import authRouter from "../auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Authentication
+  // Настройка сессий
+  app.use(session({
+    secret: process.env.SESSION_SECRET || 'superapp-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000 // 24 часа
+    }
+  }));
+
+  // Подключаем маршруты аутентификации
+  app.use("/api/auth", authRouter);
+
+  // Старый маршрут аутентификации (для обратной совместимости)
   app.post("/api/auth", async (req, res) => {
     try {
       const { code } = req.body;
