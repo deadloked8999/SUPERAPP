@@ -41,14 +41,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await getUserByUsername(cleanUsername);
 
-      // Логируем сравнение кода
-      console.log("Проверка кода:", user?.code, "введён:", code);
+      // Подробный отладочный лог
+      console.log("🛡 Проверка кода:", { 
+        username: cleanUsername, 
+        received: code, 
+        stored: user?.code,
+        userExists: !!user,
+        comparison: String(user?.code) === String(code)
+      });
 
       // Приводим оба значения к строке для корректного сравнения
       if (!user || String(user.code) !== String(code)) {
+        console.log("❌ Код не совпадает или пользователь не найден");
         return res.json({ ok: false });
       }
 
+      console.log("✅ Код совпадает - авторизация успешна");
       return res.json({ ok: true });
     } catch (error) {
       console.error("❌ Ошибка проверки кода:", error);

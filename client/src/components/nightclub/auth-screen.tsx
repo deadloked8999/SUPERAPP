@@ -27,19 +27,30 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
     if (code.length >= 4 && username) {
       setIsLoading(true);
       
+      // Отладочные логи
+      console.log("👤 Username из Telegram:", username);
+      console.log("📥 Введённый код:", code);
+      console.log("📡 Отправка запроса...");
+      
       try {
         const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
         const data = await response.json();
         
+        // Логируем ответ от сервера
+        console.log("🔁 Ответ от сервера:", data);
+        
         if (data.ok) {
+          console.log("✅ Код верный");
           onVerify(); // используем onVerify вместо onNavigate
         } else {
+          console.log("❌ Код неверный — закрываю WebApp");
           alert("❌ Неверный код.");
           if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.close();
           }
         }
       } catch (error) {
+        console.error("🚨 Ошибка сети:", error);
         alert("❌ Ошибка сети. Попробуйте еще раз.");
       } finally {
         setIsLoading(false);
