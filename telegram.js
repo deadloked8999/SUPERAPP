@@ -77,37 +77,18 @@ initUsersTable().then(() => {
 // Обработка команды /start
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
-  const username = msg.from.username || null;
-  const firstName = msg.from.first_name || "Пользователь";
+  const username = msg.from.username;
+  const firstName = msg.from.first_name || "пользователь";
 
-  try {
-    // Проверяем, есть ли пользователь в базе данных
-    const user = await getUserFromDB(username);
-    
-    if (user && user.role && user.id) {
-      // Пользователь найден и имеет роль и ID
-      const welcomeMessage = `🔐 Авторизуйтесь!  
-🧭 Доступные команды:  
-/status – Показать ваш статус  
-/auth – Получить код для входа`;
-      
-      await bot.sendMessage(chatId, welcomeMessage);
-    } else {
-      // Пользователь не найден
-      const welcomeMessage = `👋 Привет, ${firstName}!  
-Вы ещё не зарегистрированы в системе.`;
-      
-      await bot.sendMessage(chatId, welcomeMessage);
-    }
-    
-    console.log(`📨 Сообщение отправлено пользователю ${username} (${chatId})`);
+  const user = await getUserFromDB(username);
 
-  } catch (error) {
-    console.error("❌ Ошибка обработки команды /start:", error);
-    
-    // Отправляем сообщение об ошибке
-    await bot.sendMessage(chatId, 
-      "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+  if (user && user.role && user.id) {
+    bot.sendMessage(chatId,
+      `🔐 Авторизуйтесь!\n🧭 Доступные команды:\n/status – Показать ваш статус\n/auth – Получить код для входа`
+    );
+  } else {
+    bot.sendMessage(chatId,
+      `👋 Привет, ${firstName}!\nВы ещё не зарегистрированы в системе.`
     );
   }
 });
