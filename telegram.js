@@ -98,36 +98,17 @@ bot.onText(/\/status/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
 
-  try {
-    // Получаем информацию о пользователе из базы данных
-    const user = await getUserFromDB(username);
-    
-    if (user && user.role && user.id) {
-      // Первое сообщение со статусом
-      const statusMessage = `👤 Ваш статус:  
-Роль: ${user.role}  
-ID: ${user.id}  
-Вы зарегистрированы в системе.`;
-      
-      await bot.sendMessage(chatId, statusMessage);
-      
-      // Второе сообщение с командами
-      const commandsMessage = `🔐 Авторизуйтесь!  
-🧭 Доступные команды:  
-/status – Показать ваш статус  
-/auth – Получить код для входа`;
-      
-      await bot.sendMessage(chatId, commandsMessage);
-    } else {
-      await bot.sendMessage(chatId, 
-        "❌ Вы не найдены в базе данных или у вас нет роли. Используйте /start для регистрации."
-      );
-    }
-  } catch (error) {
-    console.error("❌ Ошибка получения статуса:", error);
-    await bot.sendMessage(chatId, 
-      "❌ Произошла ошибка при получении статуса. Попробуйте позже."
+  const user = await getUserFromDB(username);
+
+  if (user && user.role && user.id) {
+    await bot.sendMessage(chatId,
+      `👤 Ваш статус:\nРоль: ${user.role}\nID: ${user.id}\nВы зарегистрированы в системе.`
     );
+    await bot.sendMessage(chatId,
+      `🔐 Авторизуйтесь!\n🧭 Доступные команды:\n/status – Показать ваш статус\n/auth – Получить код для входа`
+    );
+  } else {
+    bot.sendMessage(chatId, "Вы не зарегистрированы.");
   }
 });
 
@@ -136,51 +117,13 @@ bot.onText(/\/auth/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
 
-  if (!username) {
-    await bot.sendMessage(chatId, 
-      "❌ У вас должен быть username в Telegram для получения кода аутентификации."
-    );
-    return;
-  }
+  const user = await getUserFromDB(username);
+  if (!user) return bot.sendMessage(chatId, "Вы не зарегистрированы.");
 
-  try {
-    // Проверяем, есть ли пользователь в базе данных
-    const user = await getUserFromDB(username);
-    
-    if (!user) {
-      await bot.sendMessage(chatId, 
-        "❌ Вы не найдены в базе данных. Используйте /start для регистрации."
-      );
-      return;
-    }
+  const code = generateCode();
+  await saveCodeToUser(username, code);
 
-    // Генерируем новый код
-    const code = generateCode();
-    
-    // Сохраняем код в БД
-    const saved = await saveCodeToUser(username, code);
-    
-    if (!saved) {
-      await bot.sendMessage(chatId, 
-        "❌ Ошибка сохранения кода. Попробуйте позже."
-      );
-      return;
-    }
-    
-    // Отправляем код пользователю
-    const authMessage = `🔑 Ваш код авторизации: ${code}`;
-
-    await bot.sendMessage(chatId, authMessage);
-    
-    console.log(`🔐 Код ${code} отправлен пользователю ${username} (${chatId})`);
-
-  } catch (error) {
-    console.error("❌ Ошибка генерации кода:", error);
-    
-    await bot.sendMessage(chatId, 
-      "❌ Произошла ошибка при генерации кода. Попробуйте позже."
-    );
-  }
+  bot.sendMessage(chatId, `🔑 Ваш код авторизации: ${code}`);
 });
 
 // Обработка команды /help
