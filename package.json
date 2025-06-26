@@ -4,7 +4,8 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "dev": "concurrently \"npm run bot\" \"npm run server\" \"npm run client\"",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "dev:full": "concurrently \"npm run bot\" \"npm run server\" \"npm run client\"",
     "client": "vite",
     "server": "cross-env NODE_ENV=development tsx server/index.ts",
     "bot": "node --no-warnings telegram.js",

@@ -19,9 +19,6 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
     const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
     if (tgUsername) {
       setUsername(tgUsername);
-      console.log("Получен username из Telegram:", tgUsername);
-    } else {
-      console.log("Username не найден в Telegram WebApp");
     }
   }, []);
 
@@ -35,11 +32,9 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
         const data = await response.json();
         
         if (data.ok) {
-          console.log("✅ Аутентификация успешна");
-          onNavigate?.("welcome-screen"); // переход к следующему экрану
+          onVerify(); // используем onVerify вместо onNavigate
         } else {
-          console.error("❌ Ошибка аутентификации:", data.message);
-          alert("❌ Неверный код. Приложение закроется.");
+          alert("❌ Неверный код.");
           setTimeout(() => {
             if (window.Telegram?.WebApp) {
               window.Telegram.WebApp.close();
@@ -47,7 +42,6 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
           }, 2000);
         }
       } catch (error) {
-        console.error("❌ Ошибка сети:", error);
         alert("❌ Ошибка сети. Попробуйте еще раз.");
       } finally {
         setIsLoading(false);

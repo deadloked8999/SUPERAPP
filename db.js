@@ -60,9 +60,10 @@ export const addUser = (username, phone_number, telegram_chat_id, role = "unknow
 // Функция для получения пользователя по username
 export const getUserByUsername = (username) => {
   return new Promise((resolve, reject) => {
+    // Ищем пользователя как с @, так и без него
     db.get(
-      "SELECT * FROM users WHERE username = ?",
-      [username],
+      "SELECT id, username, role, subrole_code, telegram_chat_id, phone_number, code FROM users WHERE username = ? OR username = ?",
+      [username, `@${username}`],
       (err, row) => {
         if (err) {
           console.error("❌ Ошибка получения пользователя:", err);

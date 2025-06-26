@@ -1,3 +1,5 @@
+console.log("✅ Бот запущен:", new Date().toISOString());
+
 import TelegramBot from "node-telegram-bot-api";
 import { db, addUser, initUsersTable, getUserByChatId, getUserByUsername } from "./db.js";
 import dotenv from "dotenv";
@@ -24,31 +26,49 @@ const generateAuthCode = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
-// TODO: Функция для получения пользователя из БД
+// Функция для получения пользователя из БД
 const getUserFromDB = async (username) => {
   try {
-    return await getUserByUsername(username);
+    // Убираем @ из username если есть
+    const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
+    
+    const user = await getUserByUsername(cleanUsername);
+    
+    return user;
   } catch (error) {
     console.error("❌ Ошибка получения пользователя из БД:", error);
     return null;
   }
 };
 
-// TODO: Функция для сохранения кода в БД
+// Функция для сохранения кода в БД
 const saveCodeToUser = async (username, code) => {
   try {
-    // Сохраняем код в Map (временное решение)
-    const expires = Date.now() + (10 * 60 * 1000); // 10 минут
-    authCodes.set(username, { code, expires });
-    console.log(`💾 Код ${code} сохранен для пользователя ${username}`);
-    return true;
+    // Сохраняем код в базу данных
+    const expires = new Date(Date.now() + (10 * 60 * 1000)).toISOString(); // 10 минут
+    
+    return new Promise((resolve, reject) => {
+      db.run(
+        "UPDATE users SET code = ?, auth_expires = ? WHERE username = ? OR username = ?",
+        [code, expires, username, `@${username}`],
+        function(err) {
+          if (err) {
+            console.error("❌ Ошибка сохранения кода в БД:", err);
+            reject(err);
+          } else {
+            console.log(`💾 Код ${code} сохранен для пользователя ${username}`);
+            resolve(true);
+          }
+        }
+      );
+    });
   } catch (error) {
     console.error("❌ Ошибка сохранения кода в БД:", error);
     return false;
   }
 };
 
-// TODO: Функция для генерации кода
+// Функция для генерации кода
 const generateCode = () => {
   return generateAuthCode();
 };
@@ -82,7 +102,7 @@ bot.onText(/\/start/, async (msg) => {
 
   const user = await getUserFromDB(username);
 
-  if (user && user.role && user.id) {
+  if (user && user.role && user.subrole_code) {
     bot.sendMessage(chatId,
       `🔐 Авторизуйтесь!\n🧭 Доступные команды:\n/status – Показать ваш статус\n/auth – Получить код для входа`
     );
@@ -103,9 +123,6 @@ bot.onText(/\/status/, async (msg) => {
   if (user && user.role && user.subrole_code) {
     await bot.sendMessage(chatId,
       `👤 Ваш статус:\nРоль: ${user.role}\nПодроль: ${user.subrole_code}\nВы зарегистрированы в системе.`
-    );
-    await bot.sendMessage(chatId,
-      `🔐 Авторизуйтесь!\n🧭 Доступные команды:\n/status – Показать ваш статус\n/auth – Получить код для входа`
     );
   } else {
     bot.sendMessage(chatId, "Вы не зарегистрированы.");
