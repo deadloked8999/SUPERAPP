@@ -50,9 +50,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         comparison: String(user?.code) === String(code)
       });
 
-      // Приводим оба значения к строке для корректного сравнения
-      if (!user || String(user.code) !== String(code)) {
-        console.log("❌ Код не совпадает или пользователь не найден");
+      // Проверяем существование пользователя и совпадение кода
+      if (!user) {
+        console.log("❌ Пользователь не найден");
+        return res.json({ ok: false });
+      }
+
+      if (String(user.code) !== String(code)) {
+        console.log("❌ Код не совпадает");
         return res.json({ ok: false });
       }
 

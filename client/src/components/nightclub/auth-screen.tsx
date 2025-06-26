@@ -16,56 +16,75 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
 
   // Получаем username из Telegram WebApp при загрузке компонента
   useEffect(() => {
-    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username || "localtest";
-    console.log("🔍 Получен username:", tgUsername);
+    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+    console.log("👤 username из Telegram:", tgUsername);
+    
+    if (!tgUsername) {
+      console.error("❌ Username не найден в Telegram WebApp");
+      alert("Ошибка: не удалось получить данные пользователя");
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.close();
+      }
+      return;
+    }
+    
     setUsername(tgUsername);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length >= 4 && username) {
-      setIsLoading(true);
+    
+    if (!username) {
+      alert("Ошибка: данные пользователя не загружены");
+      return;
+    }
+    
+    if (code.length < 4) {
+      alert("Введите 4-значный код");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    // Отладочные логи
+    console.log("👤 Username из Telegram:", username);
+    console.log("📥 Введённый код:", code);
+    console.log("📡 Отправка запроса...");
+    
+    try {
+      const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
       
-      // Отладочные логи
-      console.log("👤 Username из Telegram:", username);
-      console.log("📥 Введённый код:", code);
-      console.log("📡 Отправка запроса...");
-      
-      try {
-        const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
-        
-        // Проверяем статус ответа
-        if (!response.ok) {
-          console.log("❌ Сервер вернул ошибку:", response.status);
-          throw new Error(`Server error: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        
-        // Логируем ответ от сервера
-        console.log("🔁 Ответ от сервера:", data);
-        
-        if (data.ok) {
-          console.log("✅ Код верный");
-          onVerify(); // используем onVerify вместо onNavigate
-        } else {
-          console.log("❌ Код НЕВЕРНЫЙ, закрытие WebApp");
-          alert("Неверный код!");
-          setTimeout(() => {
-            if (window.Telegram?.WebApp) {
-              window.Telegram.WebApp.close();
-            }
-          }, 1500);
-        }
-      } catch (error) {
-        console.error("🧨 Ошибка авторизации:", error);
-        alert("Ошибка сервера!");
-        if (window.Telegram?.WebApp) {
-          window.Telegram.WebApp.close();
-        }
-      } finally {
-        setIsLoading(false);
+      // Проверяем статус ответа
+      if (!response.ok) {
+        console.log("❌ Сервер вернул ошибку:", response.status);
+        throw new Error(`Server error: ${response.status}`);
       }
+      
+      const data = await response.json();
+      
+      // Логируем ответ от сервера
+      console.log("🔁 Ответ от сервера:", data);
+      
+      if (data && data.ok === true) {
+        console.log("✅ Код верный, переход к следующему экрану");
+        onVerify(); // используем onVerify вместо onNavigate
+      } else {
+        console.log("❌ Код НЕВЕРНЫЙ, закрытие WebApp");
+        alert("Неверный код!");
+        setTimeout(() => {
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.close();
+          }
+        }, 1500);
+      }
+    } catch (error) {
+      console.error("🧨 Ошибка авторизации:", error);
+      alert("Ошибка сервера!");
+      if (window.Telegram?.WebApp) {
+        window.Telegram.WebApp.close();
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -84,6 +103,19 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
     const numericValue = pastedText.replace(/\D/g, '').slice(0, 4);
     onChange(numericValue);
   };
+
+  // Если username не загружен, показываем сообщение об ошибке
+  if (!username) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-500 mb-4">❌</div>
+          <h2 className="text-white text-xl mb-2">Ошибка загрузки</h2>
+          <p className="text-gray-400">Не удалось получить данные пользователя</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black">

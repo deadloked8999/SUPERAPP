@@ -10,21 +10,9 @@ dotenv.config();
 const app = express();
 
 // Настройка CORS для Telegram WebApp
-app.use(cors({
-  origin: [
-    'https://t.me',
-    'https://web.telegram.org',
-    'https://telegram.org',
-    'https://*.replit.app',
-    'https://*.replit.co',
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:5174'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+app.use(cors({ 
+  origin: "*", 
+  methods: ["GET", "POST"] 
 }));
 
 app.use(express.json());
