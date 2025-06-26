@@ -34,7 +34,8 @@ export default function AuthScreen({ onNavigate }: AuthScreenProps) {
     setIsLoading(true);
     
     try {
-      const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
+      // Используем полный URL для Replit
+      const response = await fetch(`https://a20cacca-51d5-46aa-a228-e90a8ce7fabc-00-jv4a5i83pgws.worf.replit.dev/api/verify-code?username=${username}&code=${code}`);
       const data = await response.json();
       
       if (data.ok === true) {
