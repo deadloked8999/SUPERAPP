@@ -100,9 +100,9 @@ bot.onText(/\/status/, async (msg) => {
 
   const user = await getUserFromDB(username);
 
-  if (user && user.role && user.id) {
+  if (user && user.role && user.subrole_code) {
     await bot.sendMessage(chatId,
-      `👤 Ваш статус:\nРоль: ${user.role}\nID: ${user.id}\nВы зарегистрированы в системе.`
+      `👤 Ваш статус:\nРоль: ${user.role}\nПодроль: ${user.subrole_code}\nВы зарегистрированы в системе.`
     );
     await bot.sendMessage(chatId,
       `🔐 Авторизуйтесь!\n🧭 Доступные команды:\n/status – Показать ваш статус\n/auth – Получить код для входа`
