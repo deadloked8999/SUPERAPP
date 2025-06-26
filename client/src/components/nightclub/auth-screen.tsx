@@ -1,121 +1,71 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 interface AuthScreenProps {
-  code: string;
-  onChange: (code: string) => void;
-  onVerify: () => void;
   onNavigate?: (screen: string) => void;
 }
 
-export default function AuthScreen({ code, onChange, onVerify, onNavigate }: AuthScreenProps) {
-  const [username, setUsername] = useState<string | null>(null);
+export default function AuthScreen({ onNavigate }: AuthScreenProps) {
+  const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Получаем username из Telegram WebApp при загрузке компонента
-  useEffect(() => {
-    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
-    console.log("👤 username из Telegram:", tgUsername);
-    
-    if (!tgUsername) {
-      console.error("❌ Username не найден в Telegram WebApp");
-      alert("Ошибка: не удалось получить данные пользователя");
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.close();
-      }
-      return;
+  // Получаем username из Telegram WebApp
+  const username = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+  
+  // Проверяем наличие username
+  if (!username) {
+    alert("Нет данных Telegram. Закрываю.");
+    if (window.Telegram?.WebApp) {
+      window.Telegram.WebApp.close();
     }
-    
-    setUsername(tgUsername);
-  }, []);
+    return null;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username) {
-      alert("Ошибка: данные пользователя не загружены");
-      return;
-    }
-    
-    if (code.length < 4) {
+    if (code.length !== 4) {
       alert("Введите 4-значный код");
       return;
     }
     
     setIsLoading(true);
     
-    // Отладочные логи
-    console.log("👤 Username из Telegram:", username);
-    console.log("📥 Введённый код:", code);
-    console.log("📡 Отправка запроса...");
-    
     try {
       const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
-      
-      // Проверяем статус ответа
-      if (!response.ok) {
-        console.log("❌ Сервер вернул ошибку:", response.status);
-        throw new Error(`Server error: ${response.status}`);
-      }
-      
       const data = await response.json();
       
-      // Логируем ответ от сервера
-      console.log("🔁 Ответ от сервера:", data);
-      
-      if (data && data.ok === true) {
-        console.log("✅ Код верный, переход к следующему экрану");
-        onVerify(); // используем onVerify вместо onNavigate
+      if (data.ok === true) {
+        console.log("✅ Код верный");
+        onNavigate?.("roles-screen");
       } else {
-        console.log("❌ Код НЕВЕРНЫЙ, закрытие WebApp");
-        alert("Неверный код!");
+        alert("❌ Неверный код. Закрываю");
         setTimeout(() => {
           if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.close();
           }
-        }, 1500);
+        }, 2000);
       }
-    } catch (error) {
-      console.error("🧨 Ошибка авторизации:", error);
-      alert("Ошибка сервера!");
-      if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.close();
-      }
+    } catch (err) {
+      console.error("❌ Ошибка запроса:", err);
+      alert("Ошибка сервера");
+      setTimeout(() => {
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.close();
+        }
+      }, 2000);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow digits
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 4) {
-      onChange(value);
-    }
+    // Только цифры, максимум 4 символа
+    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    setCode(value);
   };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
-    e.preventDefault();
-    const pastedText = e.clipboardData.getData('text');
-    // Only allow digits and limit to 4 characters
-    const numericValue = pastedText.replace(/\D/g, '').slice(0, 4);
-    onChange(numericValue);
-  };
-
-  // Если username не загружен, показываем сообщение об ошибке
-  if (!username) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 mb-4">❌</div>
-          <h2 className="text-white text-xl mb-2">Ошибка загрузки</h2>
-          <p className="text-gray-400">Не удалось получить данные пользователя</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-black">
@@ -137,13 +87,11 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
               полученный у администратора
             </p>
             
-            {/* Отображаем username если он получен */}
-            {username && (
-              <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
-                <p className="text-xs text-gray-400 mb-1">Пользователь:</p>
-                <p className="text-sm font-medium text-white">@{username}</p>
-              </div>
-            )}
+            {/* Отображаем username */}
+            <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+              <p className="text-xs text-gray-400 mb-1">Пользователь:</p>
+              <p className="text-sm font-medium text-white">@{username}</p>
+            </div>
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -157,7 +105,6 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
                 placeholder="****"
                 value={code}
                 onChange={handleInputChange}
-                onPaste={handlePaste}
                 disabled={isLoading}
                 className="relative w-full h-16 bg-gray-900/70 backdrop-blur-sm border-2 border-gray-700/50 rounded-2xl text-center text-3xl font-mono tracking-[0.5em] text-white placeholder:text-gray-500 focus:border-orange-500/60 focus:bg-gray-900/90 transition-all duration-300 outline-none disabled:opacity-50"
                 maxLength={4}
@@ -190,39 +137,25 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
               />
             </div>
             
-            {/* Submit button for non-Telegram environments */}
-            {!window.Telegram?.WebApp && (
-              <Button 
-                type="submit"
-                disabled={code.length < 4 || isLoading || !username}
-                className={`w-full h-14 font-semibold text-base rounded-2xl transition-all duration-300 transform ${
-                  code.length >= 4 && !isLoading && username
-                    ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white shadow-xl shadow-orange-500/25 active:scale-95 hover:shadow-2xl hover:shadow-orange-500/40'
-                    : 'bg-gray-800/50 text-gray-500 border border-gray-700/50 cursor-not-allowed'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Проверка...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Check size={20} />
-                      <span>Подтвердить</span>
-                    </>
-                  )}
+            {/* Submit Button */}
+            <Button 
+              type="submit"
+              disabled={code.length < 4 || isLoading}
+              className={`w-full h-14 font-semibold text-base rounded-2xl transition-all duration-300 transform ${
+                code.length >= 4 && !isLoading
+                  ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white shadow-xl shadow-orange-500/25 active:scale-95 hover:shadow-2xl hover:shadow-orange-500/40'
+                  : 'bg-gray-700/50 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  Проверка...
                 </div>
-              </Button>
-            )}
-
-            {/* Helper text */}
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mt-[0px] mb-[0px] text-center">
-                {!username ? "Ожидание данных пользователя..." : "Введите все 4 цифры для продолжения"}
-              </p>
-            </div>
+              ) : (
+                "Подтвердить"
+              )}
+            </Button>
           </form>
         </div>
       </div>
