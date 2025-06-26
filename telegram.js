@@ -24,6 +24,35 @@ const generateAuthCode = () => {
   return Math.floor(1000 + Math.random() * 9000).toString();
 };
 
+// TODO: Функция для получения пользователя из БД
+const getUserFromDB = async (username) => {
+  try {
+    return await getUserByUsername(username);
+  } catch (error) {
+    console.error("❌ Ошибка получения пользователя из БД:", error);
+    return null;
+  }
+};
+
+// TODO: Функция для сохранения кода в БД
+const saveCodeToUser = async (username, code) => {
+  try {
+    // Сохраняем код в Map (временное решение)
+    const expires = Date.now() + (10 * 60 * 1000); // 10 минут
+    authCodes.set(username, { code, expires });
+    console.log(`💾 Код ${code} сохранен для пользователя ${username}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Ошибка сохранения кода в БД:", error);
+    return false;
+  }
+};
+
+// TODO: Функция для генерации кода
+const generateCode = () => {
+  return generateAuthCode();
+};
+
 // Функция для очистки устаревших кодов
 const cleanupExpiredCodes = () => {
   const now = Date.now();
@@ -49,39 +78,74 @@ initUsersTable().then(() => {
 bot.onText(/\/start/, async (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username || null;
-  const phone_number = null;
   const firstName = msg.from.first_name || "Пользователь";
 
   try {
-    // Добавляем пользователя в базу данных
-    const changes = await addUser(username, phone_number, chatId, "unknown");
+    // Проверяем, есть ли пользователь в базе данных
+    const user = await getUserFromDB(username);
     
-    // Формируем приветственное сообщение
-    let welcomeMessage = `👋 Привет, ${firstName}!`;
-    
-    if (changes > 0) {
-      welcomeMessage += "\n\n✅ Вы успешно зарегистрированы в системе SUPERAPP!";
-      welcomeMessage += "\n\n🎯 Ваша роль: <b>Неизвестная</b>";
-      welcomeMessage += "\n📱 Для получения доступа обратитесь к администратору.";
+    if (user && user.role && user.id) {
+      // Пользователь найден и имеет роль и ID
+      const welcomeMessage = `🔐 Авторизуйтесь!  
+🧭 Доступные команды:  
+/status – Показать ваш статус  
+/auth – Получить код для входа`;
+      
+      await bot.sendMessage(chatId, welcomeMessage);
     } else {
-      welcomeMessage += "\n\nℹ️ Вы уже зарегистрированы в системе.";
-      welcomeMessage += "\n\n🎯 Используйте команды:";
-      welcomeMessage += "\n/help - Справка";
-      welcomeMessage += "\n/status - Ваш статус";
-      welcomeMessage += "\n/auth - Получить код для входа";
+      // Пользователь не найден
+      const welcomeMessage = `👋 Привет, ${firstName}!  
+Вы ещё не зарегистрированы в системе.`;
+      
+      await bot.sendMessage(chatId, welcomeMessage);
     }
-
-    // Отправляем приветственное сообщение
-    await bot.sendMessage(chatId, welcomeMessage, { parse_mode: 'HTML' });
     
-    console.log(`📨 Приветственное сообщение отправлено пользователю ${username} (${chatId})`);
+    console.log(`📨 Сообщение отправлено пользователю ${username} (${chatId})`);
 
   } catch (error) {
     console.error("❌ Ошибка обработки команды /start:", error);
     
     // Отправляем сообщение об ошибке
     await bot.sendMessage(chatId, 
-      "❌ Произошла ошибка при регистрации. Попробуйте позже или обратитесь к администратору."
+      "❌ Произошла ошибка при обработке команды. Попробуйте позже."
+    );
+  }
+});
+
+// Обработка команды /status
+bot.onText(/\/status/, async (msg) => {
+  const chatId = msg.chat.id;
+  const username = msg.from.username;
+
+  try {
+    // Получаем информацию о пользователе из базы данных
+    const user = await getUserFromDB(username);
+    
+    if (user && user.role && user.id) {
+      // Первое сообщение со статусом
+      const statusMessage = `👤 Ваш статус:  
+Роль: ${user.role}  
+ID: ${user.id}  
+Вы зарегистрированы в системе.`;
+      
+      await bot.sendMessage(chatId, statusMessage);
+      
+      // Второе сообщение с командами
+      const commandsMessage = `🔐 Авторизуйтесь!  
+🧭 Доступные команды:  
+/status – Показать ваш статус  
+/auth – Получить код для входа`;
+      
+      await bot.sendMessage(chatId, commandsMessage);
+    } else {
+      await bot.sendMessage(chatId, 
+        "❌ Вы не найдены в базе данных или у вас нет роли. Используйте /start для регистрации."
+      );
+    }
+  } catch (error) {
+    console.error("❌ Ошибка получения статуса:", error);
+    await bot.sendMessage(chatId, 
+      "❌ Произошла ошибка при получении статуса. Попробуйте позже."
     );
   }
 });
@@ -100,7 +164,7 @@ bot.onText(/\/auth/, async (msg) => {
 
   try {
     // Проверяем, есть ли пользователь в базе данных
-    const user = await getUserByUsername(username);
+    const user = await getUserFromDB(username);
     
     if (!user) {
       await bot.sendMessage(chatId, 
@@ -110,34 +174,22 @@ bot.onText(/\/auth/, async (msg) => {
     }
 
     // Генерируем новый код
-    const code = generateAuthCode();
-    const expires = Date.now() + (10 * 60 * 1000); // Код действителен 10 минут
+    const code = generateCode();
     
-    // Сохраняем код в Map
-    authCodes.set(username, { code, expires });
+    // Сохраняем код в БД
+    const saved = await saveCodeToUser(username, code);
+    
+    if (!saved) {
+      await bot.sendMessage(chatId, 
+        "❌ Ошибка сохранения кода. Попробуйте позже."
+      );
+      return;
+    }
     
     // Отправляем код пользователю
-    const authMessage = `
-🔐 <b>Код аутентификации</b>
+    const authMessage = `🔑 Ваш код авторизации: ${code}`;
 
-👤 <b>Пользователь:</b> @${username}
-🎯 <b>Роль:</b> ${user.role || 'Неизвестна'}
-
-🔢 <b>Ваш код:</b> <code>${code}</code>
-
-⏰ <b>Действителен:</b> 10 минут
-🌐 <b>Сайт:</b> http://localhost:5173
-
-📝 <b>Инструкция:</b>
-1. Перейдите на сайт
-2. Введите username: @${username}
-3. Введите код: ${code}
-4. Нажмите "Войти"
-
-⚠️ <b>Внимание:</b> Не передавайте код третьим лицам!
-    `;
-
-    await bot.sendMessage(chatId, authMessage, { parse_mode: 'HTML' });
+    await bot.sendMessage(chatId, authMessage);
     
     console.log(`🔐 Код ${code} отправлен пользователю ${username} (${chatId})`);
 
@@ -183,47 +235,6 @@ http://localhost:5173
   `;
 
   await bot.sendMessage(chatId, helpMessage, { parse_mode: 'HTML' });
-});
-
-// Обработка команды /status
-bot.onText(/\/status/, async (msg) => {
-  const chatId = msg.chat.id;
-  const username = msg.from.username;
-
-  try {
-    // Получаем информацию о пользователе из базы данных
-    const user = await getUserByChatId(chatId);
-    
-    if (user) {
-      const statusMessage = `
-👤 <b>Ваш профиль</b>
-
-📛 <b>Username:</b> ${user.username || 'Не указан'}
-📱 <b>Телефон:</b> ${user.phone_number || 'Не указан'}
-🎯 <b>Роль:</b> ${user.role || 'Неизвестна'}
-🆔 <b>Chat ID:</b> ${user.telegram_chat_id}
-
-${user.role === 'admin' ? '🔑 <b>Доступ:</b> Полный административный доступ' : 
-  user.role === 'hostess' ? '👩‍💼 <b>Доступ:</b> Функции хостес' :
-  user.role === 'dancer' ? '💃 <b>Доступ:</b> Функции танцовщицы' :
-  user.role === 'promoter' ? '📢 <b>Доступ:</b> Функции промоутера' :
-  '❓ <b>Доступ:</b> Ограничен (обратитесь к администратору)'}
-
-🔐 <b>Активные коды:</b> ${authCodes.has(user.username) ? 'Есть' : 'Нет'}
-      `;
-      
-      await bot.sendMessage(chatId, statusMessage, { parse_mode: 'HTML' });
-    } else {
-      await bot.sendMessage(chatId, 
-        "❌ Вы не найдены в базе данных. Используйте /start для регистрации."
-      );
-    }
-  } catch (error) {
-    console.error("❌ Ошибка получения статуса:", error);
-    await bot.sendMessage(chatId, 
-      "❌ Произошла ошибка при получении статуса. Попробуйте позже."
-    );
-  }
 });
 
 // Обработка ошибок бота
