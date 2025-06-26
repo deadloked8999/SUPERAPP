@@ -4,6 +4,7 @@ import session from "express-session";
 import { storage } from "./storage";
 import { insertGuestSchema, insertShiftSchema, insertPaymentSchema } from "@shared/schema";
 import authRouter from "../auth";
+import { getUserByUsername } from "../db.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Настройка сессий
@@ -20,6 +21,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Подключаем маршруты аутентификации
   app.use("/api/auth", authRouter);
+
+  // GET endpoint для проверки кода аутентификации
+  app.get("/api/verify-code", async (req, res) => {
+    try {
+      const { username, code } = req.query;
+      
+      if (!username || !code) {
+        return res.status(400).json({ 
+          ok: false, 
+          message: "Username и code обязательны" 
+        });
+      }
+
+      // Убираем @ из username если есть
+      const cleanUsername = typeof username === 'string' && username.startsWith('@') 
+        ? username.slice(1) 
+        : username;
+
+      const user = await getUserByUsername(cleanUsername);
+
+      if (!user || user.code !== code) {
+        return res.json({ ok: false });
+      }
+
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error("❌ Ошибка проверки кода:", error);
+      return res.status(500).json({ ok: false, message: "Внутренняя ошибка сервера" });
+    }
+  });
 
   // Старый маршрут аутентификации (для обратной совместимости)
   app.post("/api/auth", async (req, res) => {

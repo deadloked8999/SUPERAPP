@@ -1,18 +1,57 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Check } from "lucide-react";
+import { useState, useEffect } from "react";
 
 interface AuthScreenProps {
   code: string;
   onChange: (code: string) => void;
   onVerify: () => void;
+  onNavigate?: (screen: string) => void;
 }
 
-export default function AuthScreen({ code, onChange, onVerify }: AuthScreenProps) {
-  const handleSubmit = (e: React.FormEvent) => {
+export default function AuthScreen({ code, onChange, onVerify, onNavigate }: AuthScreenProps) {
+  const [username, setUsername] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Получаем username из Telegram WebApp при загрузке компонента
+  useEffect(() => {
+    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
+    if (tgUsername) {
+      setUsername(tgUsername);
+      console.log("Получен username из Telegram:", tgUsername);
+    } else {
+      console.log("Username не найден в Telegram WebApp");
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length >= 4) {
-      onVerify();
+    if (code.length >= 4 && username) {
+      setIsLoading(true);
+      
+      try {
+        const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
+        const data = await response.json();
+        
+        if (data.ok) {
+          console.log("✅ Аутентификация успешна");
+          onNavigate?.("welcome-screen"); // переход к следующему экрану
+        } else {
+          console.error("❌ Ошибка аутентификации:", data.message);
+          alert("❌ Неверный код. Приложение закроется.");
+          setTimeout(() => {
+            if (window.Telegram?.WebApp) {
+              window.Telegram.WebApp.close();
+            }
+          }, 2000);
+        }
+      } catch (error) {
+        console.error("❌ Ошибка сети:", error);
+        alert("❌ Ошибка сети. Попробуйте еще раз.");
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -46,13 +85,19 @@ export default function AuthScreen({ code, onChange, onVerify }: AuthScreenProps
         <div className="w-full max-w-sm relative z-10">
           {/* Header */}
           <div className="text-center mb-12">
-            
-            
             <h1 className="font-bold text-white mb-3 text-[29px]">Введите код</h1>
             <p className="text-gray-400 text-sm leading-relaxed">
               Введите 4-значный код,<br />
               полученный у администратора
             </p>
+            
+            {/* Отображаем username если он получен */}
+            {username && (
+              <div className="mt-4 p-3 bg-gray-800/50 rounded-lg border border-gray-700/50">
+                <p className="text-xs text-gray-400 mb-1">Пользователь:</p>
+                <p className="text-sm font-medium text-white">@{username}</p>
+              </div>
+            )}
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-8">
@@ -67,7 +112,8 @@ export default function AuthScreen({ code, onChange, onVerify }: AuthScreenProps
                 value={code}
                 onChange={handleInputChange}
                 onPaste={handlePaste}
-                className="relative w-full h-16 bg-gray-900/70 backdrop-blur-sm border-2 border-gray-700/50 rounded-2xl text-center text-3xl font-mono tracking-[0.5em] text-white placeholder:text-gray-500 focus:border-orange-500/60 focus:bg-gray-900/90 transition-all duration-300 outline-none"
+                disabled={isLoading}
+                className="relative w-full h-16 bg-gray-900/70 backdrop-blur-sm border-2 border-gray-700/50 rounded-2xl text-center text-3xl font-mono tracking-[0.5em] text-white placeholder:text-gray-500 focus:border-orange-500/60 focus:bg-gray-900/90 transition-all duration-300 outline-none disabled:opacity-50"
                 maxLength={4}
               />
               
@@ -102,16 +148,25 @@ export default function AuthScreen({ code, onChange, onVerify }: AuthScreenProps
             {!window.Telegram?.WebApp && (
               <Button 
                 type="submit"
-                disabled={code.length < 4}
+                disabled={code.length < 4 || isLoading || !username}
                 className={`w-full h-14 font-semibold text-base rounded-2xl transition-all duration-300 transform ${
-                  code.length >= 4
+                  code.length >= 4 && !isLoading && username
                     ? 'bg-gradient-to-r from-orange-500 to-pink-600 hover:from-orange-600 hover:to-pink-700 text-white shadow-xl shadow-orange-500/25 active:scale-95 hover:shadow-2xl hover:shadow-orange-500/40'
                     : 'bg-gray-800/50 text-gray-500 border border-gray-700/50 cursor-not-allowed'
                 }`}
               >
                 <div className="flex items-center justify-center space-x-2">
-                  <Check size={20} />
-                  <span>Подтвердить</span>
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Проверка...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={20} />
+                      <span>Подтвердить</span>
+                    </>
+                  )}
                 </div>
               </Button>
             )}
@@ -119,7 +174,7 @@ export default function AuthScreen({ code, onChange, onVerify }: AuthScreenProps
             {/* Helper text */}
             <div className="text-center">
               <p className="text-xs text-gray-500 mt-[0px] mb-[0px] text-center">
-                Введите все 4 цифры для продолжения
+                {!username ? "Ожидание данных пользователя..." : "Введите все 4 цифры для продолжения"}
               </p>
             </div>
           </form>
