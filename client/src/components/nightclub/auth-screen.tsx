@@ -16,10 +16,9 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
 
   // Получаем username из Telegram WebApp при загрузке компонента
   useEffect(() => {
-    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username;
-    if (tgUsername) {
-      setUsername(tgUsername);
-    }
+    const tgUsername = window.Telegram?.WebApp?.initDataUnsafe?.user?.username || "localtest";
+    console.log("🔍 Получен username:", tgUsername);
+    setUsername(tgUsername);
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
