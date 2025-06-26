@@ -33,6 +33,13 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
       
       try {
         const response = await fetch(`/api/verify-code?username=${username}&code=${code}`);
+        
+        // Проверяем статус ответа
+        if (!response.ok) {
+          console.log("❌ Сервер вернул ошибку:", response.status);
+          throw new Error(`Server error: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         // Логируем ответ от сервера
@@ -42,15 +49,20 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
           console.log("✅ Код верный");
           onVerify(); // используем onVerify вместо onNavigate
         } else {
-          console.log("❌ Код неверный — закрываю WebApp");
-          alert("❌ Неверный код.");
-          if (window.Telegram?.WebApp) {
-            window.Telegram.WebApp.close();
-          }
+          console.log("❌ Код НЕВЕРНЫЙ, закрытие WebApp");
+          alert("Неверный код!");
+          setTimeout(() => {
+            if (window.Telegram?.WebApp) {
+              window.Telegram.WebApp.close();
+            }
+          }, 1500);
         }
       } catch (error) {
-        console.error("🚨 Ошибка сети:", error);
-        alert("❌ Ошибка сети. Попробуйте еще раз.");
+        console.error("🧨 Ошибка авторизации:", error);
+        alert("Ошибка сервера!");
+        if (window.Telegram?.WebApp) {
+          window.Telegram.WebApp.close();
+        }
       } finally {
         setIsLoading(false);
       }
