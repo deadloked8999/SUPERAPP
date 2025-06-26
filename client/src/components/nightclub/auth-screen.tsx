@@ -35,11 +35,9 @@ export default function AuthScreen({ code, onChange, onVerify, onNavigate }: Aut
           onVerify(); // используем onVerify вместо onNavigate
         } else {
           alert("❌ Неверный код.");
-          setTimeout(() => {
-            if (window.Telegram?.WebApp) {
-              window.Telegram.WebApp.close();
-            }
-          }, 2000);
+          if (window.Telegram?.WebApp) {
+            window.Telegram.WebApp.close();
+          }
         }
       } catch (error) {
         alert("❌ Ошибка сети. Попробуйте еще раз.");

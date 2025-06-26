@@ -41,6 +41,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const user = await getUserByUsername(cleanUsername);
 
+      // Логируем сравнение кода
+      console.log("Проверка кода:", user?.code, "введён:", code);
+
       // Приводим оба значения к строке для корректного сравнения
       if (!user || String(user.code) !== String(code)) {
         return res.json({ ok: false });
