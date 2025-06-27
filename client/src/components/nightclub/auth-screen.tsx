@@ -34,22 +34,19 @@ export default function AuthScreen({ onNavigate }: AuthScreenProps) {
     setIsLoading(true);
     
     try {
-      // Используем полный URL для Replit
+      // Внешний Replit URL
       const url = `https://a20cacca-51d5-46aa-a228-e90a8ce7fabc-00-jv4a5i83pgws.worf.replit.dev/api/verify-code?username=${username}&code=${code}`;
-      console.log("Отправка запроса на прод:", url);
+      console.log("Введённый код:", code);
+      console.log("URL запроса:", url);
       
       const response = await fetch(url);
-      console.log("Получен ответ:", response.status, response.statusText);
-      
       const data = await response.json();
-      console.log("Данные ответа:", data);
+      console.log("Ответ от сервера:", data);
       
       if (data.ok === true) {
-        console.log("✅ Код верный");
-        onNavigate?.("roles-screen");
+        onNavigate && onNavigate("roles-screen");
       } else {
-        console.log("❌ Код неверный");
-        alert("❌ Неверный код. Закрываю");
+        alert("Неверный код! Приложение закроется.");
         setTimeout(() => {
           if (window.Telegram?.WebApp) {
             window.Telegram.WebApp.close();
