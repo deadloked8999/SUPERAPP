@@ -35,13 +35,20 @@ export default function AuthScreen({ onNavigate }: AuthScreenProps) {
     
     try {
       // Используем полный URL для Replit
-      const response = await fetch(`https://a20cacca-51d5-46aa-a228-e90a8ce7fabc-00-jv4a5i83pgws.worf.replit.dev/api/verify-code?username=${username}&code=${code}`);
+      const url = `https://a20cacca-51d5-46aa-a228-e90a8ce7fabc-00-jv4a5i83pgws.worf.replit.dev/api/verify-code?username=${username}&code=${code}`;
+      console.log("Отправка запроса на прод:", url);
+      
+      const response = await fetch(url);
+      console.log("Получен ответ:", response.status, response.statusText);
+      
       const data = await response.json();
+      console.log("Данные ответа:", data);
       
       if (data.ok === true) {
         console.log("✅ Код верный");
         onNavigate?.("roles-screen");
       } else {
+        console.log("❌ Код неверный");
         alert("❌ Неверный код. Закрываю");
         setTimeout(() => {
           if (window.Telegram?.WebApp) {
