@@ -4,10 +4,10 @@ import { LogIn } from "lucide-react";
 
 
 interface WelcomeScreenProps {
-  onStart: () => void;
+  onNext: () => void;
 }
 
-export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+export default function WelcomeScreen({ onNext }: WelcomeScreenProps) {
   return (
     <div 
       className="h-screen w-screen bg-cover bg-center bg-no-repeat bg-black relative overflow-hidden"
@@ -59,7 +59,7 @@ export default function WelcomeScreen({ onStart }: WelcomeScreenProps) {
           {/* Action button with modern styling */}
           <div className="w-full max-w-xs text-[12px] mt-[9px] mb-[9px] pt-[0px] pb-[0px] pl-[106px] pr-[106px] font-normal">
             <button
-              onClick={onStart}
+              onClick={onNext}
               className="group relative w-full h-16 overflow-hidden rounded-3xl bg-gradient-to-r from-zinc-800/90 to-zinc-700/90 border border-zinc-600/30 transition-all duration-700 ease-out hover:border-orange-500/50 hover:shadow-2xl hover:shadow-orange-500/10 active:scale-95"
             >
               {/* Background animation on hover */}

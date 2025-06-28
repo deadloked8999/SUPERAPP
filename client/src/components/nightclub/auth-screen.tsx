@@ -4,10 +4,10 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 
 interface AuthScreenProps {
-  onNavigate?: (screen: string) => void;
+  onNext: () => void;
 }
 
-export default function AuthScreen({ onNavigate }: AuthScreenProps) {
+export default function AuthScreen({ onNext }: AuthScreenProps) {
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,7 +44,7 @@ export default function AuthScreen({ onNavigate }: AuthScreenProps) {
       console.log("Ответ от сервера:", data);
       
       if (data.ok === true) {
-        onNavigate && onNavigate("roles-screen");
+        onNext();
       } else {
         alert("Неверный код! Приложение закроется.");
         setTimeout(() => {
