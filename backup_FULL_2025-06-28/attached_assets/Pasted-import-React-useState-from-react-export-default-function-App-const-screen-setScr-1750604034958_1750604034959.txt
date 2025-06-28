@@ -1,0 +1,919 @@
+import React, { useState } from "react";
+
+export default function App() {
+  const [screen, setScreen] = useState("welcome");
+  const [authCode, setAuthCode] = useState("");
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [guestCount, setGuestCount] = useState(1);
+  const [reservation, setReservation] = useState(false);
+  const [visitedBefore, setVisitedBefore] = useState(false);
+  const [guestName, setGuestName] = useState("");
+  const [shiftOpen, setShiftOpen] = useState(false);
+  const [searchResults, setSearchResults] = useState([]);
+  const [declineReason, setDeclineReason] = useState("");
+
+  // Оплата
+  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState([]);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [paymentType, setPaymentType] = useState("");
+  const [amountCash, setAmountCash] = useState("");
+  const [amountCard, setAmountCard] = useState("");
+
+  // Билеты
+  const [ticketAmounts, setTicketAmounts] = useState({
+    "1000": 0,
+    "3000": 0,
+    "FREE": 0,
+    "custom": ""
+  });
+
+  // Мок ролей
+  const roles = [
+    { slug: "ADMIN", title: "Администратор" },
+    { slug: "DANCER", title: "Танцовщица" },
+    { slug: "HOSTESS", title: "Хостес" },
+    { slug: "PROMOTER", title: "Промоутер" },
+    { slug: "SHADOW", title: "Тень" },
+    { slug: "HOOKAH", title: "Кальяны" },
+    { slug: "PARTY", title: "Party" },
+    { slug: "OTHER", title: "Другое" }
+  ];
+
+  return (
+    <div className="bg-gray-900 min-h-screen text-gray-200 font-inter">
+      {/* Header */}
+      <Header screen={screen} onBack={() => {
+        if (!["roles", "home"].includes(screen)) {
+          if (["came-or-not", "payment-methods", "deposit-input", "deposit-type-select", "ticket-select", "ticket-nominals", "ticket-payment-type", "combo-cash", "combo-card", "combo-summary"].includes(screen)) {
+            setScreen("guest-flow-start");
+          } else if (screen === "reservation") {
+            setScreen("guest-count");
+          } else if (screen === "visited-before") {
+            setScreen("reservation");
+          } else if (screen === "guest-name") {
+            setScreen("visited-before");
+          } else if (screen === "reservation-card") {
+            setScreen("guest-name");
+          } else if (screen === "guest-count") {
+            setScreen("guest-flow-start");
+          } else if (screen === "shift-dashboard") {
+            setScreen("home");
+          }
+        }
+      }} />
+
+      {/* Screens */}
+      {screen === "welcome" && <WelcomeScreen onStart={() => setScreen("auth-code")} />}
+      {screen === "auth-code" && (
+        <AuthCodeScreen
+          code={authCode}
+          onChange={setAuthCode}
+          onVerify={() => setScreen("roles")}
+        />
+      )}
+      {screen === "roles" && (
+        <RolesList
+          roles={roles}
+          onSelect={(role) => {
+            setSelectedRole(role);
+            setScreen("home");
+          }}
+        />
+      )}
+      {screen === "home" && (
+        <HomeScreen
+          selectedRole={selectedRole}
+          onNavigate={setScreen}
+          shiftOpen={shiftOpen}
+          setShiftOpen={setShiftOpen}
+        />
+      )}
+      {screen === "shift-dashboard" && (
+        <ShiftDashboard
+          onOpenShift={() => setScreen("guest-flow-start")}
+        />
+      )}
+
+      {/* Гостевой поток */}
+      {screen === "guest-flow-start" && (
+        <GuestFlowStart onNext={() => setScreen("guest-count")} />
+      )}
+      {screen === "guest-count" && (
+        <GuestCountInput
+          count={guestCount}
+          onChange={setGuestCount}
+          onNext={() => setScreen("reservation")}
+        />
+      )}
+      {screen === "reservation" && (
+        <ReservationStep
+          reservation={reservation}
+          onToggle={() => setReservation(!reservation)}
+          onNext={() => {
+            if (reservation) {
+              setScreen("visited-before");
+            } else {
+              alert(`✅ Гости записаны: ${guestCount}, Бронь: Нет`);
+              setScreen("guest-flow-start");
+            }
+          }}
+        />
+      )}
+      {screen === "visited-before" && (
+        <VisitedBeforeStep
+          visited={visitedBefore}
+          onToggle={() => setVisitedBefore(!visitedBefore)}
+          onNext={() => setScreen("guest-name")}
+        />
+      )}
+      {screen === "guest-name" && (
+        <GuestNameInput
+          name={guestName}
+          onChange={setGuestName}
+          onNext={() => {
+            setSearchResults([
+              {
+                id: 1,
+                guest_name: guestName,
+                phone: "+7 (999) 123-45-67",
+                guest_count: 4,
+                table_number: "VIP-1",
+                deposit_amount: 100.00
+              }
+            ]);
+            setScreen("reservation-card");
+          }}
+        />
+      )}
+      {screen === "reservation-card" && (
+        <ReservationCard
+          reservation={searchResults[0]}
+          onConfirm={() => setScreen("came-or-not")}
+        />
+      )}
+      {screen === "came-or-not" && (
+        <CameOrNotStep
+          onYes={() => setScreen("payment-methods")}
+          onNo={() => setScreen("decline-reason")}
+        />
+      )}
+      {screen === "decline-reason" && (
+        <DeclineReasonInput
+          reason={declineReason}
+          onChange={setDeclineReason}
+          onSubmit={() => {
+            alert(`❌ Гость не зашёл. Причина: ${declineReason}`);
+            setScreen("guest-flow-start");
+          }}
+        />
+      )}
+
+      {/* Выбор способа оплаты */}
+      {screen === "payment-methods" && (
+        <PaymentMethodSelection
+          selected={selectedPaymentMethods}
+          onSelect={setSelectedPaymentMethods}
+          onNext={() => {
+            if (selectedPaymentMethods.includes("ДЕПОЗИТ")) {
+              setScreen("deposit-input");
+            } else if (selectedPaymentMethods.includes("БИЛЕТЫ")) {
+              setScreen("ticket-select");
+            } else {
+              setScreen("guest-flow-start");
+            }
+          }}
+        />
+      )}
+
+      {/* Ввод суммы депозита */}
+      {screen === "deposit-input" && (
+        <DepositInput
+          amount={depositAmount}
+          onChange={setDepositAmount}
+          onNext={() => {
+            if (depositAmount && !isNaN(depositAmount) && parseFloat(depositAmount) > 0) {
+              setScreen("deposit-type-select");
+            } else {
+              alert("⚠️ Введите корректную сумму.");
+            }
+          }}
+        />
+      )}
+
+      {/* Выбор типа оплаты депозита */}
+      {screen === "deposit-type-select" && (
+        <DepositPaymentTypeSelector
+          paymentTypes={["НАЛ", "БЕЗНАЛ", "КОМБО"]}
+          onSelect={(type) => {
+            if (type === "нал" || type === "безнал") {
+              alert(`✅ Оплата через ${type.toUpperCase()} подтверждена.`);
+              setScreen("guest-flow-start");
+            } else {
+              setScreen("combo-cash");
+            }
+          }}
+        />
+      )}
+
+      {/* Выбор билетов */}
+      {screen === "ticket-select" && (
+        <TicketNominalSelector
+          ticketAmounts={ticketAmounts}
+          onAddTicket={(type) => {
+            if (type === "СВОБОДНАЯ ЦЕНА") {
+              setScreen("ticket-nominals");
+            } else {
+              setTicketAmounts(prev => ({
+                ...prev,
+                [type]: prev[type] + 1
+              }));
+            }
+          }}
+          onClear={() => {
+            setTicketAmounts({
+              "1000": 0,
+              "3000": 0,
+              "FREE": 0,
+              "custom": ""
+            });
+            setScreen("ticket-select");
+          }}
+          onNext={() => {
+            const total =
+              ticketAmounts["1000"] * 1000 +
+              ticketAmounts["3000"] * 3000;
+            let customPrice = parseInt(ticketAmounts.custom) || 0;
+            const finalTotal = total + customPrice;
+
+            if (finalTotal > 0 || ticketAmounts.FREE > 0) {
+              setScreen("ticket-payment-type");
+            } else {
+              alert("⚠️ Выберите хотя бы один билет.");
+            }
+          }}
+        />
+      )}
+
+      {/* Ввод свободной цены */}
+      {screen === "ticket-nominals" && (
+        <TicketCustomPriceInput
+          value={ticketAmounts["custom"]}
+          onChange={(e) => setTicketAmounts(prev => ({
+            ...prev,
+            "custom": e.target.value
+          }))}
+          onNext={() => setScreen("ticket-select")}
+        />
+      )}
+
+      {/* Выбор типа оплаты для билетов */}
+      {screen === "ticket-payment-type" && (
+        <TicketPaymentTypeSelector
+          paymentTypes={["НАЛ", "БЕЗНАЛ", "КОМБО", "CRYPTO"]}
+          selected={paymentType}
+          onSelect={setPaymentType}
+          onNext={() => {
+            if (paymentType === "комбо") {
+              setScreen("combo-cash");
+            } else {
+              alert(`✅ Оплата через ${paymentType.toUpperCase()}`);
+              setScreen("guest-flow-start");
+            }
+          }}
+        />
+      )}
+
+      {/* Ввод наличными */}
+      {screen === "combo-cash" && (
+        <ComboCashInput
+          amount={amountCash}
+          onChange={setAmountCash}
+          onNext={() => setScreen("combo-card")}
+        />
+      )}
+
+      {/* Ввод по карте */}
+      {screen === "combo-card" && (
+        <ComboCardInput
+          amount={amountCard}
+          onChange={setAmountCard}
+          onNext={() => setScreen("combo-summary")}
+        />
+      )}
+
+      {/* Итог КОМБО */}
+      {screen === "combo-summary" && (
+        <ComboSummary
+          cash={amountCash}
+          card={amountCard}
+          ticketTotal={
+            ticketAmounts["1000"] * 1000 +
+            ticketAmounts["3000"] * 3000 +
+            parseInt(ticketAmounts["custom"] || 0)
+          }
+          comboTotal={parseInt(amountCash || 0) + parseInt(amountCard || 0)}
+          onNext={() => {
+            const ticketTotal =
+              ticketAmounts["1000"] * 1000 +
+              ticketAmounts["3000"] * 3000 +
+              parseInt(ticketAmounts["custom"] || 0);
+
+            const comboTotal = parseInt(amountCash || 0) + parseInt(amountCard || 0);
+
+            if (comboTotal !== ticketTotal) {
+              alert("❌ Сумма не совпадает. Пожалуйста, введите правильные данные.");
+              setAmountCash("");
+              setAmountCard("");
+              setScreen("combo-cash");
+            } else {
+              alert(`✅ Оплата подтверждена:\nНАЛ: ${amountCash}\nБЕЗНАЛ: ${amountCard}\nИТОГО: ${comboTotal} ₽`);
+              setScreen("guest-flow-start");
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Компонент заголовка
+function Header({ screen, onBack }) {
+  const disableBack = ["welcome", "auth-code", "roles", "home"].includes(screen);
+
+  return (
+    <header className="flex items-center px-4 py-3 bg-gray-800 border-b border-gray-700 shadow-sm">
+      {!disableBack && (
+        <button onClick={onBack} className="mr-3 text-orange-400">&larr;</button>
+      )}
+      <h1 className="text-lg font-semibold capitalize">{screen}</h1>
+    </header>
+  );
+}
+
+// Welcome Screen
+function WelcomeScreen({ onStart }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+      <img src="/THE_NUDE_LOGO.png" alt="IgorPay Logo" className="mb-6 w-32 h-32 rounded-full" />
+      <h1 className="text-2xl font-bold mb-4">Добро пожаловать</h1>
+      <p className="text-gray-400 mb-6">Telegram Web App для хостес</p>
+      <button
+        onClick={onStart}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl shadow-md hover:opacity-90 transition"
+      >
+        ВОЙТИ
+      </button>
+    </div>
+  );
+}
+
+// Auth Code Input
+function AuthCodeScreen({ code, onChange, onVerify }) {
+  return (
+    <div className="flex flex-col items-center justify-center h-full p-6">
+      <h2 className="text-xl font-bold mb-4">Введите код</h2>
+      <input
+        type="text"
+        maxLength="4"
+        value={code}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="1234"
+        className="w-full max-w-xs text-center text-2xl border-b-2 border-orange-500 outline-none focus:border-orange-400 pb-2 mb-6 bg-gray-800 text-white"
+      />
+      <button
+        onClick={onVerify}
+        disabled={code.length !== 4}
+        className={`w-full py-3 font-semibold rounded-xl ${
+          code.length === 4
+            ? "bg-gradient-to-r from-orange-500 to-pink-600 text-white"
+            : "bg-gray-700 text-gray-500 cursor-not-allowed"
+        }`}
+      >
+        ПРОДОЛЖИТЬ
+      </button>
+    </div>
+  );
+}
+
+// Список ролей
+function RolesList({ roles, onSelect }) {
+  return (
+    <main className="p-6 grid grid-cols-2 gap-4">
+      <h2 className="col-span-2 text-xl font-bold text-center mb-4">Выберите роль</h2>
+      {roles.map((role) => (
+        <button
+          key={role.slug}
+          onClick={() => onSelect(role)}
+          className="py-4 bg-gray-800 rounded-xl shadow-sm hover:bg-gray-700 transition border border-gray-700"
+        >
+          {role.title}
+        </button>
+      ))}
+    </main>
+  );
+}
+
+// Главная после роли
+function HomeScreen({ selectedRole, onNavigate, shiftOpen, setShiftOpen }) {
+  const canOpenShift = selectedRole?.slug === "HOSTESS";
+
+  return (
+    <main className="p-6 space-y-6">
+      <h2 className="text-xl font-bold">Главная ({selectedRole?.title})</h2>
+
+      {canOpenShift && !shiftOpen && (
+        <button
+          onClick={() => {
+            const now = new Date().toISOString();
+            localStorage.setItem('shiftOpenedAt', now);
+            setShiftOpen(true);
+            onNavigate("guest-flow-start");
+          }}
+          className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+        >
+          ОТКРЫТЬ СМЕНУ
+        </button>
+      )}
+
+      {canOpenShift && shiftOpen && (
+        <button
+          onClick={() => onNavigate("guest-flow-start")}
+          className="w-full py-3 bg-green-600 text-white font-semibold rounded-xl"
+        >
+          ГОСТИ
+        </button>
+      )}
+    </main>
+  );
+}
+
+// Открытие смены
+function ShiftDashboard({ onOpenShift }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Смена Хостес</h2>
+      <button
+        onClick={onOpenShift}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ОТКРЫТЬ СМЕНУ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 1: Гости
+function GuestFlowStart({ onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Гости</h2>
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ЗАПИСАТЬ ГОСТЕЙ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 2: Кол-во гостей
+function GuestCountInput({ count, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Сколько гостей?</h2>
+      <input
+        type="number"
+        min="1"
+        value={count}
+        onChange={(e) => onChange(parseInt(e.target.value))}
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white"
+      />
+      <button
+        onClick={onNext}
+        disabled={count <= 0}
+        className={`mt-4 w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          count <= 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 3: Есть бронь?
+function ReservationStep({ reservation, onToggle, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Есть бронь?</h2>
+      <div className="flex justify-around mb-6">
+        <label className="flex items-center space-x-2">
+          <input type="radio" name="reservation" checked={reservation} onChange={onToggle} />
+          <span>Да</span>
+        </label>
+        <label className="flex items-center space-x-2">
+          <input type="radio" name="reservation" checked={!reservation} onChange={onToggle} />
+          <span>Нет</span>
+        </label>
+      </div>
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 4: Были ранее?
+function VisitedBeforeStep({ visited, onToggle, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Были ранее?</h2>
+      <div className="flex justify-around mb-6">
+        <label className="flex items-center space-x-2">
+          <input type="radio" name="visited" checked={visited} onChange={() => onToggle(true)} />
+          <span>Да</span>
+        </label>
+        <label className="flex items-center space-x-2">
+          <input type="radio" name="visited" checked={!visited} onChange={() => onToggle(false)} />
+          <span>Нет</span>
+        </label>
+      </div>
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 5: Ввод имени гостя
+function GuestNameInput({ name, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Введите имя гостя</h2>
+      <input
+        type="text"
+        value={name}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Имя"
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white"
+      />
+      <button
+        onClick={onNext}
+        disabled={!name.trim()}
+        className={`mt-4 w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !name.trim() ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        НАЙТИ БРОНЬ
+      </button>
+    </main>
+  );
+}
+
+// Шаг 6: Карточка брони
+function ReservationCard({ reservation, onConfirm }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Карточка брони</h2>
+      <div className="bg-gray-800 p-4 rounded-xl shadow-sm mb-4 border border-gray-700">
+        <p><strong>Имя:</strong> {reservation.guest_name}</p>
+        <p><strong>Телефон:</strong> {reservation.phone}</p>
+        <p><strong>Кол-во:</strong> {reservation.guest_count}</p>
+        <p><strong>Стол:</strong> {reservation.table_number}</p>
+        <p><strong>Депозит:</strong> {reservation.deposit_amount} ₽</p>
+      </div>
+      <button
+        onClick={onConfirm}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ПОДТВЕРДИТЬ
+      </button>
+    </main>
+  );
+}
+
+// Гости зашли? Да / Нет
+function CameOrNotStep({ onYes, onNo }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Гости зашли?</h2>
+      <div className="flex justify-around gap-4 mt-6">
+        <button
+          onClick={onYes}
+          className="px-6 py-3 bg-green-600 text-white rounded-xl flex-1"
+        >
+          ДА
+        </button>
+        <button
+          onClick={onNo}
+          className="px-6 py-3 bg-red-600 text-white rounded-xl flex-1"
+        >
+          НЕТ
+        </button>
+      </div>
+    </main>
+  );
+}
+
+// Причина отказа
+function DeclineReasonInput({ reason, onChange, onSubmit }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Причина отказа</h2>
+      <textarea
+        rows="3"
+        value={reason}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Введите причину..."
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white"
+      ></textarea>
+      <button
+        onClick={onSubmit}
+        disabled={!reason.trim()}
+        className={`mt-4 w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !reason.trim() ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ОТПРАВИТЬ
+      </button>
+    </main>
+  );
+}
+
+// Выбор способа оплаты
+function PaymentMethodSelection({ selected, onSelect, onNext }) {
+  const toggleMethod = (method) => {
+    if (selected.includes(method)) {
+      onSelect(selected.filter(m => m !== method));
+    } else {
+      onSelect([...selected, method]);
+    }
+  };
+
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Как оплатят?</h2>
+      <div className="grid grid-cols-2 gap-4">
+        {["ДЕПОЗИТ", "БИЛЕТЫ", "КАРТА", "PASS ID"].map((method) => (
+          <button
+            key={method}
+            onClick={() => toggleMethod(method)}
+            className={`p-4 rounded-xl border ${
+              selected.includes(method)
+                ? "bg-orange-900 border-orange-500 text-white"
+                : "bg-gray-800 border-gray-700 text-gray-300"
+            }`}
+          >
+            {method}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onNext}
+        disabled={selected.length === 0}
+        className={`mt-6 w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          selected.length === 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Ввод суммы депозита
+function DepositInput({ amount, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Введите сумму депозита</h2>
+      <input
+        type="number"
+        min="1"
+        value={amount}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Сумма"
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white mb-6"
+      />
+      <button
+        onClick={onNext}
+        disabled={!amount || isNaN(amount) || amount <= 0}
+        className={`w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !amount || isNaN(amount) || amount <= 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Выбор типа оплаты (для депозита)
+function DepositPaymentTypeSelector({ paymentTypes, onSelect }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Выберите тип оплаты</h2>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {paymentTypes.map(type => (
+          <button
+            key={type}
+            onClick={() => onSelect(type.toLowerCase())}
+            className="p-4 bg-gray-800 border border-gray-700 text-white rounded-xl hover:bg-gray-700"
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+    </main>
+  );
+}
+
+// Выбор номинала билета
+function TicketNominalSelector({ ticketAmounts, onAddTicket, onClear, onNext }) {
+  const totalSum =
+    ticketAmounts["1000"] * 1000 +
+    ticketAmounts["3000"] * 3000 +
+    parseInt(ticketAmounts["custom"] || 0);
+
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Выберите тип билета</h2>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {["1000", "3000", "FREE", "СВОБОДНАЯ ЦЕНА"].map((type) => (
+          <button
+            key={type}
+            onClick={() => onAddTicket(type)}
+            className="p-4 bg-gray-800 border border-gray-700 text-white rounded-xl hover:bg-gray-700"
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+
+      <div className="bg-gray-800 p-4 rounded-xl mb-6 border border-gray-700">
+        <p><strong>1000 ₽:</strong> {ticketAmounts["1000"]} шт.</p>
+        <p><strong>3000 ₽:</strong> {ticketAmounts["3000"]} шт.</p>
+        <p><strong>FREE:</strong> {ticketAmounts["FREE"]} шт.</p>
+        {ticketAmounts["custom"] && (
+          <p><strong>Свободная цена:</strong> {ticketAmounts["custom"]} ₽</p>
+        )}
+        <p className="mt-2"><strong>ИТОГО:</strong> {totalSum} ₽</p>
+      </div>
+
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ДАЛЕЕ
+      </button>
+      <button
+        onClick={onClear}
+        className="mt-4 w-full py-3 bg-gray-700 text-gray-300 font-semibold rounded-xl"
+      >
+        ОЧИСТИТЬ
+      </button>
+    </main>
+  );
+}
+
+// Ввод свободной цены
+function TicketCustomPriceInput({ value, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Свободная цена</h2>
+      <input
+        type="number"
+        min="1"
+        value={value}
+        onChange={onChange}
+        placeholder="Введите сумму"
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white mb-6"
+      />
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Выбор типа оплаты для билетов
+function TicketPaymentTypeSelector({ paymentTypes, selected, onSelect, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Выберите способ оплаты</h2>
+      <div className="grid grid-cols-2 gap-4 mb-6">
+        {paymentTypes.map(type => (
+          <button
+            key={type}
+            onClick={() => {
+              onSelect(type.toLowerCase());
+            }}
+            className={`p-4 rounded-xl border ${
+              selected === type.toLowerCase()
+                ? "bg-orange-900 border-orange-500 text-white"
+                : "bg-gray-800 border-gray-700 text-gray-300"
+            }`}
+          >
+            {type}
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={onNext}
+        disabled={!selected}
+        className={`w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !selected ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Ввод наличными (КОМБО)
+function ComboCashInput({ amount, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Наличные</h2>
+      <input
+        type="number"
+        min="1"
+        value={amount}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Сумма"
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white mb-6"
+      />
+      <button
+        onClick={onNext}
+        disabled={!amount || isNaN(amount) || amount <= 0}
+        className={`w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !amount || isNaN(amount) || amount <= 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Ввод по карте (КОМБО)
+function ComboCardInput({ amount, onChange, onNext }) {
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">На карту</h2>
+      <input
+        type="number"
+        min="1"
+        value={amount}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Сумма"
+        className="w-full p-3 bg-gray-800 border border-gray-700 rounded-lg focus:ring focus:ring-orange-500 text-white mb-6"
+      />
+      <button
+        onClick={onNext}
+        disabled={!amount || isNaN(amount) || amount <= 0}
+        className={`w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl ${
+          !amount || isNaN(amount) || amount <= 0 ? "opacity-50 cursor-not-allowed" : ""
+        }`}
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}
+
+// Итог КОМБО
+function ComboSummary({ cash, card, ticketTotal, comboTotal, onNext }) {
+  const isValid = comboTotal === ticketTotal;
+
+  return (
+    <main className="p-6">
+      <h2 className="text-xl font-bold mb-4">Итоговая сумма</h2>
+      <div className="bg-gray-800 p-4 rounded-xl mb-6 border border-gray-700">
+        <p><strong>НАЛ:</strong> {cash} ₽</p>
+        <p><strong>БЕЗНАЛ:</strong> {card} ₽</p>
+        <p className="mt-2"><strong>ИТОГО:</strong> {comboTotal} ₽</p>
+        <p><strong>Сумма билетов:</strong> {ticketTotal} ₽</p>
+        <p className={`mt-2 ${isValid ? "text-green-500" : "text-red-500"}`}>
+          {isValid ? "✔️ Совпадает" : "❌ Не совпадает"}
+        </p>
+      </div>
+      <button
+        onClick={onNext}
+        className="w-full py-3 bg-gradient-to-r from-orange-500 to-pink-600 text-white font-semibold rounded-xl"
+      >
+        ДАЛЕЕ
+      </button>
+    </main>
+  );
+}

@@ -1,5 +1,4 @@
 import express from "express";
-import { verifyAuthCode } from "./telegram.js";
 import { getUserByUsername } from "./db.js";
 
 const router = express.Router();
@@ -20,16 +19,6 @@ router.post("/verify-code", async (req, res) => {
     // Убираем @ из username если есть
     const cleanUsername = username.startsWith('@') ? username.slice(1) : username;
 
-    // Проверяем код
-    const verification = verifyAuthCode(cleanUsername, code);
-
-    if (!verification.valid) {
-      return res.status(401).json({
-        success: false,
-        message: verification.message
-      });
-    }
-
     // Получаем информацию о пользователе из базы данных
     const user = await getUserByUsername(cleanUsername);
 
@@ -37,6 +26,22 @@ router.post("/verify-code", async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Пользователь не найден в базе данных"
+      });
+    }
+
+    // Проверяем код из базы данных
+    if (String(user.code) !== String(code)) {
+      return res.status(401).json({
+        success: false,
+        message: "Неверный код аутентификации"
+      });
+    }
+
+    // Проверяем, не истек ли код
+    if (user.auth_expires && new Date(user.auth_expires) < new Date()) {
+      return res.status(401).json({
+        success: false,
+        message: "Код аутентификации истек"
       });
     }
 
